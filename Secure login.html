@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaultAuth — Secure Login System</title>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a38;
+    --border-glow: #4f46e5;
+    --accent: #6366f1;
+    --accent2: #a78bfa;
+    --green: #22d3a3;
+    --red: #f43f5e;
+    --yellow: #fbbf24;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --text-dim: #3d3d55;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: gridShift 20s linear infinite;
+  }
+
+  @keyframes gridShift {
+    0% { transform: translate(0,0); }
+    100% { transform: translate(48px, 48px); }
+  }
+
+  /* Orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+    animation: float 8s ease-in-out infinite;
+  }
+  .orb-1 { width: 400px; height: 400px; background: #4f46e5; top: -100px; left: -100px; animation-delay: 0s; }
+  .orb-2 { width: 300px; height: 300px; background: #7c3aed; bottom: -80px; right: -80px; animation-delay: -4s; }
+  .orb-3 { width: 200px; height: 200px; background: #0891b2; top: 50%; left: 60%; animation-delay: -2s; }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(20px, -20px) scale(1.05); }
+    66% { transform: translate(-15px, 15px) scale(0.95); }
+  }
+
+  /* Main card */
+  .card {
+    position: relative;
+    width: 440px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    z-index: 10;
+    box-shadow: 0 0 0 1px rgba(99,102,241,0.1), 0 32px 64px rgba(0,0,0,0.5);
+    animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .brand-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .brand-name {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(90deg, #fff, var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .brand-badge {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--green);
+    background: rgba(34,211,163,0.1);
+    border: 1px solid rgba(34,211,163,0.2);
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1; padding: 9px; border: none; background: none;
+    color: var(--text-muted); font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600; border-radius: 9px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(99,102,241,0.4);
+  }
+
+  /* Views */
+  .view { display: none; }
+  .view.active { display: block; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .view-title {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px;
+  }
+  .view-subtitle {
+    font-size: 13px; color: var(--text-muted); margin-bottom: 24px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Form fields */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 1.5px; margin-bottom: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+  .field-wrap { position: relative; }
+  .field input {
+    width: 100%; padding: 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .field input.error { border-color: var(--red); }
+  .field input.success { border-color: var(--green); }
+  .field .toggle-pw {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 16px; padding: 2px;
+  }
+  .field-error {
+    font-size: 11px; color: var(--red); margin-top: 5px;
+    font-family: 'DM Mono', monospace;
+    display: none;
+  }
+  .field-error.show { display: block; }
+
+  /* Password strength */
+  .pw-strength { margin-top: 8px; }
+  .pw-bars { display: flex; gap: 4px; margin-bottom: 4px; }
+  .pw-bar {
+    flex: 1; height: 3px; background: var(--border);
+    border-radius: 2px; transition: background 0.3s;
+  }
+  .pw-label { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text-muted); }
+
+  /* Buttons */
+  .btn {
+    width: 100%; padding: 13px;
+    border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    position: relative; overflow: hidden;
+    margin-top: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.45); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+
+  .btn .spinner {
+    display: none;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  }
+  @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+  .btn.loading .btn-text { visibility: hidden; }
+  .btn.loading .spinner { display: block; }
+
+  /* Alert */
+  .alert {
+    padding: 12px 14px; border-radius: 10px;
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    margin-bottom: 16px; display: none;
+    border: 1px solid;
+    line-height: 1.5;
+  }
+  .alert.show { display: flex; gap: 8px; align-items: flex-start; }
+  .alert.success { background: rgba(34,211,163,0.08); border-color: rgba(34,211,163,0.25); color: var(--green); }
+  .alert.error { background: rgba(244,63,94,0.08); border-color: rgba(244,63,94,0.25); color: var(--red); }
+  .alert.warning { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.25); color: var(--yellow); }
+  .alert.info { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: var(--accent2); }
+
+  /* Dashboard */
+  .dashboard-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+  }
+  .user-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800;
+  }
+  .user-info .name { font-size: 16px; font-weight: 700; }
+  .user-info .role {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .logout-btn {
+    margin-left: auto; padding: 7px 14px;
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text-muted);
+    font-family: 'Syne', sans-serif; font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px;
+  }
+  .stat-card .stat-label {
+    font-size: 10px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .stat-card .stat-value { font-size: 20px; font-weight: 800; }
+  .stat-card .stat-sub { font-size: 10px; color: var(--text-muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .session-info {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; margin-bottom: 16px;
+  }
+  .session-info .si-title {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 10px;
+  }
+  .si-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .si-row:last-child { margin-bottom: 0; }
+  .si-key { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+  .si-val { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text); }
+  .si-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+  .si-badge.green { background: rgba(34,211,163,0.1); color: var(--green); border: 1px solid rgba(34,211,163,0.2); }
+  .si-badge.purple { background: rgba(99,102,241,0.1); color: var(--accent2); border: 1px solid rgba(99,102,241,0.2); }
+
+  /* 2FA Setup */
+  .twofa-wrap { text-align: center; padding: 8px 0; }
+  .twofa-code-display {
+    display: flex; justify-content: center; gap: 8px; margin: 16px 0;
+  }
+  .twofa-digit {
+    width: 42px; height: 52px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500;
+    color: var(--accent2);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .twofa-digit.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .twofa-input-real {
+    position: absolute; opacity: 0; width: 1px; height: 1px;
+  }
+  .twofa-instructions {
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace; line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .twofa-secret {
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    background: var(--surface2); border: 1px dashed var(--border);
+    padding: 10px 14px; border-radius: 8px;
+    color: var(--accent2); letter-spacing: 2px; margin: 12px 0;
+  }
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin: 20px 0;
+    color: var(--text-dim); font-size: 11px; font-family: 'DM Mono', monospace;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* Security log */
+  .log-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace; font-size: 11px;
+  }
+  .log-item:last-child { border-bottom: none; }
+  .log-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .log-dot.ok { background: var(--green); }
+  .log-dot.fail { background: var(--red); }
+  .log-text { flex: 1; color: var(--text-muted); }
+  .log-time { color: var(--text-dim); }
+
+  /* Checkbox */
+  .checkbox-wrap {
+    display: flex; align-items: center; gap: 10px;
+    margin: 16px 0; cursor: pointer;
+  }
+  .checkbox-wrap input[type="checkbox"] { display: none; }
+  .custom-check {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.2s;
+  }
+  .checkbox-wrap input:checked + .custom-check {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .checkbox-wrap input:checked + .custom-check::after { content: '✓'; color: #fff; font-size: 11px; }
+  .checkbox-label { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="card" id="app">
+  <div class="brand">
+    <div class="brand-icon">🔐</div>
+    <span class="brand-name">VaultAuth</span>
+    <span class="brand-badge">SECURE</span>
+  </div>
+
+  <!-- Tabs (shown conditionally) -->
+  <div class="tabs" id="auth-tabs">
+    <button class="tab active" onclick="switchTab('login')">Sign In</button>
+    <button class="tab" onclick="switchTab('register')">Register</button>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert" id="global-alert"></div>
+
+  <!-- LOGIN VIEW -->
+  <div class="view active" id="view-login">
+    <div class="view-title">Welcome back</div>
+    <div class="view-subtitle">// enter credentials to authenticate</div>
+
+    <div class="field">
+      <label>Username or Email</label>
+      <div class="field-wrap">
+        <input type="text" id="login-user" placeholder="user@example.com" autocomplete="username">
+      </div>
+      <div class="field-error" id="err-login-user"></div>
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <div class="field-wrap">
+        <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+        <button class="toggle-pw" onclick="togglePw('login-pw', this)">👁</button>
+      </div>
+      <div class="field-error" id="err-login-pw"></div>
+    </div>
+
+    <label class="checkbox-wrap" id="remember-wrap">
+      <input type="checkbox" id="remember-me">
+      <span class="custom-check"></span>
+      <span class="checkbox-label">Remember me for 30 days</span>
+    </label>
+
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">
+      <span class="btn-text">Sign In</span>
+      <span class="spinner"></span>
+    </button>
+  </div>
+
+  <!-- REGISTER VIEW -->
+  <div class="view" id="view-register">
+    <div class="view-title">Create account</div>
+    <div class="view-subtitle">// hashed with SHA-256 · salted · sql injection proof</div>
+
+    <div class="field">
+      <label>Email Address</label>
+      <div class="field-wrap">
+        <input type="email" id="reg-email" placeholder="you@example.com" oninput="validateEmail(this)">
+      </div>
+      <div class="field-error" id="err-reg-email"></div>
+    </div>
+
+    <div class="field">
+      <label>Username</label>
+      <div class="field-wrap">
+        <input type="text" id="reg-user" placeholder="cooluser42" oninput="validateUsername(this)">
+      </div>
+      <div class="field-error" id="err-reg-user"></div>
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <div class="field-wrap">
+        <input type="password" id="reg-pw" placeholder="min. 8 characters" oninput="checkStrength(this)">
+        <button class="toggle-pw" onclick="togglePw('reg-pw', this)">👁</button>
+      </div>
+      <div class="pw-strength" id="pw-strength" style="display:none">
+        <div class="pw-bars">
+          <div class="pw-bar" id="bar1"></div>
+          <div class="pw-bar" id="bar2"></div>
+          <div class="pw-bar" id="bar3"></div>
+          <div class="pw-bar" id="bar4"></div>
+        </div>
+        <div class="pw-label" id="pw-label">Weak</div>
+      </div>
+      <div class="field-error" id="err-reg-pw"></div>
+    </div>
+
+    <div class="field">
+      <label>Confirm Password</label>
+      <div class="field-wrap">
+        <input type="password" id="reg-pw2" placeholder="repeat password" oninput="validateConfirm(this)">
+        <button class="toggle-pw" onclick="togglePw('reg-pw2', this)">👁</button>
+      </div>
+      <div class="field-error" id="err-reg-pw2"></div>
+    </div>
+
+    <label class="checkbox-wrap">
+      <input type="checkbox" id="enable-2fa">
+      <span class="custom-check"></span>
+      <span class="checkbox-label">Enable Two-Factor Authentication (2FA)</span>
+    </label>
+
+    <button class="btn btn-primary" id="btn-register" onclick="doRegister()">
+      <span class="btn-text">Create Account</span>
+      <span class="spinner"></span>
+    </button>
+  </div>
+
+  <!-- 2FA VERIFY VIEW -->
+  <div class="view" id="view-2fa">
+    <div class="view-title">Two-Factor Auth</div>
+    <div class="view-subtitle">// enter the 6-digit code from your app</div>
+
+    <div class="twofa-wrap">
+      <div class="twofa-instructions">
+        Your account is protected with 2FA.<br>
+        Enter the 6-digit verification code below.
+      </div>
+      <div class="twofa-code-display" id="twofa-digits" onclick="focusTwofaInput()">
+        <div class="twofa-digit" id="d0">_</div>
+        <div class="twofa-digit" id="d1">_</div>
+        <div class="twofa-digit" id="d2">_</div>
+        <div class="twofa-digit" id="d3">_</div>
+        <div class="twofa-digit" id="d4">_</div>
+        <div class="twofa-digit" id="d5">_</div>
+      </div>
+      <input class="twofa-input-real" id="twofa-real" type="tel" maxlength="6"
+             oninput="on2FAInput(this)" onkeydown="on2FAKeydown(event)">
+    </div>
+
+    <div class="alert info show" style="margin-top:8px">
+      <span>ℹ️</span>
+      <span>Demo mode: your 2FA code is <strong id="demo-code-display" style="color:var(--yellow)">------</strong></span>
+    </div>
+
+    <button class="btn btn-primary" id="btn-2fa" onclick="verify2FA()">
+      <span class="btn-text">Verify Code</span>
+      <span class="spinner"></span>
+    </button>
+    <button class="btn btn-secondary" onclick="cancelLogin()" style="margin-top:8px">
+      <span class="btn-text">← Back to Login</span>
+    </button>
+  </div>
+
+  <!-- 2FA SETUP VIEW -->
+  <div class="view" id="view-2fa-setup">
+    <div class="view-title">Setup 2FA</div>
+    <div class="view-subtitle">// scan QR or use secret key</div>
+
+    <div class="twofa-instructions" style="margin-top:0">
+      In a real app, scan this QR code with<br>Google Authenticator or Authy.
+    </div>
+
+    <div style="text-align:center; margin: 8px 0 4px">
+      <div style="display:inline-block; padding:12px; background:#fff; border-radius:12px;">
+        <canvas id="fake-qr" width="120" height="120"></canvas>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;font-family:'DM Mono',monospace;">
+        Your secret key:
+      </div>
+      <div class="twofa-secret" id="setup-secret">ABCD EFGH IJKL MNOP</div>
+    </div>
+
+    <div class="divider">then verify</div>
+
+    <div class="twofa-code-display" id="setup-digits" onclick="focusSetupInput()">
+      <div class="twofa-digit" id="sd0">_</div>
+      <div class="twofa-digit" id="sd1">_</div>
+      <div class="twofa-digit" id="sd2">_</div>
+      <div class="twofa-digit" id="sd3">_</div>
+      <div class="twofa-digit" id="sd4">_</div>
+      <div class="twofa-digit" id="sd5">_</div>
+    </div>
+    <input class="twofa-input-real" id="setup-real" type="tel" maxlength="6"
+           oninput="onSetupInput(this)" onkeydown="onSetupKeydown(event)">
+
+    <div class="alert info show" style="margin-top:8px">
+      <span>ℹ️</span>
+      <span>Demo: enter <strong id="setup-code-hint" style="color:var(--yellow)">------</strong> to verify</span>
+    </div>
+
+    <button class="btn btn-primary" onclick="confirmSetup2FA()">
+      <span class="btn-text">Confirm & Enable 2FA</span>
+      <span class="spinner"></span>
+    </button>
+    <button class="btn btn-secondary" onclick="skipSetup2FA()" style="margin-top:8px">
+      <span class="btn-text">Skip for now</span>
+    </button>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div class="view" id="view-dashboard">
+    <div class="dashboard-header">
+      <div class="user-avatar" id="dash-avatar">U</div>
+      <div class="user-info">
+        <div class="name" id="dash-name">User</div>
+        <div class="role" id="dash-role">// authenticated</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">⏻ Logout</button>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Session ID</div>
+        <div class="stat-value" style="font-size:13px;font-family:'DM Mono',monospace" id="dash-session">—</div>
+        <div class="stat-sub">active token</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Login Time</div>
+        <div class="stat-value" style="font-size:14px;font-family:'DM Mono',monospace" id="dash-time">—</div>
+        <div class="stat-sub">this session</div>
+      </div>
+    </div>
+
+    <div class="session-info">
+      <div class="si-title">Security Details</div>
+      <div class="si-row">
+        <span class="si-key">Password</span>
+        <span class="si-badge purple" id="dash-hash-algo">SHA-256 + salt</span>
+      </div>
+      <div class="si-row">
+        <span class="si-key">SQL Injection</span>
+        <span class="si-badge green">PROTECTED</span>
+      </div>
+      <div class="si-row">
+        <span class="si-key">2FA Status</span>
+        <span class="si-badge" id="dash-2fa-status">DISABLED</span>
+      </div>
+      <div class="si-row">
+        <span class="si-key">Session</span>
+        <span class="si-badge green">ACTIVE</span>
+      </div>
+    </div>
+
+    <div class="session-info">
+      <div class="si-title">Security Log</div>
+      <div id="security-log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Bcrypt shim using Web Crypto API (SHA-256 + salt, no external lib) ──────
+const bcrypt = {
+  async hash(pw, rounds) {
+    const salt = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map(b => b.toString(16).padStart(2,'0')).join('');
+    const hash = await _hashWithSalt(pw, salt);
+    return `$sha2$${rounds}$${salt}$${hash}`;
+  },
+  async compare(pw, stored) {
+    try {
+      const parts = stored.split('$');
+      // format: $sha2$rounds$salt$hash
+      const salt = parts[3];
+      const expected = parts[4];
+      const actual = await _hashWithSalt(pw, salt);
+      return actual === expected;
+    } catch { return false; }
+  }
+};
+
+async function _hashWithSalt(pw, salt) {
+  const enc = new TextEncoder();
+  const data = enc.encode(salt + pw);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  // Multiple rounds for stretch
+  let result = new Uint8Array(buf);
+  for (let i = 0; i < 1000; i++) {
+    const combined = new Uint8Array(result.length + data.length);
+    combined.set(result); combined.set(data, result.length);
+    result = new Uint8Array(await crypto.subtle.digest('SHA-256', combined));
+  }
+  return Array.from(result).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const DB = {}; // in-memory user store: { username: { email, username, hash, twoFAEnabled, twoFASecret, createdAt } }
+let session = null;
+let pendingUser = null;
+let pending2FACode = null;
+let setupCode = null;
+const securityLog = [];
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
+function sanitize(str) {
+  // SQL injection / XSS prevention: strip dangerous chars
+  return String(str).replace(/[<>"'`;\\\x00-\x1f]/g, '').trim();
+}
+
+function validateEmailFmt(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function generateSessionId() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function generateTOTPCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function generate2FASecret() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let s = '';
+  for (let i = 0; i < 16; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s.match(/.{4}/g).join(' ');
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('global-alert');
+  el.className = `alert ${type} show`;
+  el.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '🚫' : type === 'warning' ? '⚠️' : 'ℹ️'}</span><span>${msg}</span>`;
+}
+function hideAlert() {
+  document.getElementById('global-alert').className = 'alert';
+}
+
+function setLoading(btnId, state) {
+  const btn = document.getElementById(btnId);
+  btn.classList.toggle('loading', state);
+  btn.disabled = state;
+}
+
+function addLog(ok, text) {
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  securityLog.unshift({ ok, text, time: now });
+  if (securityLog.length > 5) securityLog.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('security-log');
+  if (!el) return;
+  el.innerHTML = securityLog.map(l => `
+    <div class="log-item">
+      <div class="log-dot ${l.ok ? 'ok' : 'fail'}"></div>
+      <div class="log-text">${l.text}</div>
+      <div class="log-time">${l.time}</div>
+    </div>`).join('');
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  const isText = inp.type === 'text';
+  inp.type = isText ? 'password' : 'text';
+  btn.textContent = isText ? '👁' : '🙈';
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  hideAlert();
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  showView(tab === 'login' ? 'view-login' : 'view-register');
+}
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const showTabs = id === 'view-login' || id === 'view-register';
+  document.getElementById('auth-tabs').style.display = showTabs ? 'flex' : 'none';
+}
+
+// ─── Validation helpers ───────────────────────────────────────────────────────
+function validateEmail(inp) {
+  const v = sanitize(inp.value);
+  if (!v) { showErr('err-reg-email', ''); inp.className = ''; return false; }
+  if (!validateEmailFmt(v)) { showErr('err-reg-email', 'Invalid email format'); inp.className = 'error'; return false; }
+  showErr('err-reg-email', ''); inp.className = 'success'; return true;
+}
+
+function validateUsername(inp) {
+  const v = sanitize(inp.value);
+  if (!v) { showErr('err-reg-user', ''); inp.className = ''; return false; }
+  if (v.length < 3) { showErr('err-reg-user', 'Min 3 characters'); inp.className = 'error'; return false; }
+  if (!/^[a-zA-Z0-9_]+$/.test(v)) { showErr('err-reg-user', 'Only letters, numbers, underscores'); inp.className = 'error'; return false; }
+  if (DB[v.toLowerCase()]) { showErr('err-reg-user', 'Username already taken'); inp.className = 'error'; return false; }
+  showErr('err-reg-user', ''); inp.className = 'success'; return true;
+}
+
+function checkStrength(inp) {
+  const v = inp.value;
+  document.getElementById('pw-strength').style.display = v ? 'block' : 'none';
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (v.length >= 12) score++;
+  if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++;
+  if (/[0-9]/.test(v)) score++;
+  if (/[^a-zA-Z0-9]/.test(v)) score++;
+  score = Math.min(score, 4);
+  const colors = ['#f43f5e', '#fb923c', '#fbbf24', '#22d3a3'];
+  const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('bar' + i).style.background = i <= score ? colors[score - 1] : 'var(--border)';
+  }
+  document.getElementById('pw-label').textContent = labels[score - 1] || 'Too short';
+  document.getElementById('pw-label').style.color = score ? colors[score - 1] : 'var(--text-muted)';
+  return score;
+}
+
+function validateConfirm(inp) {
+  const pw = document.getElementById('reg-pw').value;
+  if (inp.value !== pw) { showErr('err-reg-pw2', 'Passwords do not match'); inp.className = 'error'; return false; }
+  showErr('err-reg-pw2', ''); inp.className = 'success'; return true;
+}
+
+// ─── Registration ─────────────────────────────────────────────────────────────
+async function doRegister() {
+  hideAlert();
+  const email = sanitize(document.getElementById('reg-email').value);
+  const username = sanitize(document.getElementById('reg-user').value);
+  const pw = document.getElementById('reg-pw').value;
+  const pw2 = document.getElementById('reg-pw2').value;
+  const wants2FA = document.getElementById('enable-2fa').checked;
+
+  // Validate
+  let ok = true;
+  if (!validateEmailFmt(email)) { showErr('err-reg-email', 'Valid email required'); document.getElementById('reg-email').className = 'error'; ok = false; }
+  if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) { showErr('err-reg-user', 'Valid username required'); document.getElementById('reg-user').className = 'error'; ok = false; }
+  if (DB[username.toLowerCase()]) { showErr('err-reg-user', 'Username already taken'); document.getElementById('reg-user').className = 'error'; ok = false; }
+  if (pw.length < 8) { showErr('err-reg-pw', 'Min 8 characters required'); document.getElementById('reg-pw').className = 'error'; ok = false; }
+  if (pw !== pw2) { showErr('err-reg-pw2', 'Passwords do not match'); document.getElementById('reg-pw2').className = 'error'; ok = false; }
+  if (!ok) return;
+
+  setLoading('btn-register', true);
+
+  // Simulate async hashing (bcryptjs)
+  await delay(600);
+  const saltRounds = 10;
+  const hash = await bcrypt.hash(pw, saltRounds);
+
+  DB[username.toLowerCase()] = {
+    email, username, hash,
+    twoFAEnabled: false,
+    twoFASecret: generate2FASecret(),
+    createdAt: new Date().toISOString(),
+    loginAttempts: 0,
+    locked: false
+  };
+
+  setLoading('btn-register', false);
+  addLog(true, `Account created: ${username}`);
+
+  if (wants2FA) {
+    pendingUser = username.toLowerCase();
+    setupCode = generateTOTPCode();
+    document.getElementById('setup-code-hint').textContent = setupCode;
+    document.getElementById('setup-secret').textContent = DB[pendingUser].twoFASecret;
+    drawFakeQR();
+    showView('view-2fa-setup');
+    setTimeout(() => focusSetupInput(), 100);
+  } else {
+    showAlert('success', `Account created! Welcome, <strong>${username}</strong> — you can now sign in.`);
+    showView('view-login');
+    // Switch tab UI
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  }
+}
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  hideAlert();
+  const raw = sanitize(document.getElementById('login-user').value);
+  const pw = document.getElementById('login-pw').value;
+
+  if (!raw) { showErr('err-login-user', 'Username or email required'); document.getElementById('login-user').className = 'error'; return; }
+  if (!pw) { showErr('err-login-pw', 'Password required'); document.getElementById('login-pw').className = 'error'; return; }
+  showErr('err-login-user', ''); showErr('err-login-pw', '');
+
+  setLoading('btn-login', true);
+  await delay(800);
+
+  // Find user by username or email
+  const key = Object.keys(DB).find(k => k === raw.toLowerCase() || DB[k].email === raw);
+
+  if (!key) {
+    setLoading('btn-login', false);
+    addLog(false, `Failed login: ${raw} (not found)`);
+    showAlert('error', 'Invalid credentials');
+    return;
+  }
+
+  const user = DB[key];
+
+  if (user.locked) {
+    setLoading('btn-login', false);
+    showAlert('error', 'Account locked due to too many failed attempts.');
+    return;
+  }
+
+  const match = await bcrypt.compare(pw, user.hash);
+  if (!match) {
+    user.loginAttempts = (user.loginAttempts || 0) + 1;
+    if (user.loginAttempts >= 5) { user.locked = true; }
+    setLoading('btn-login', false);
+    addLog(false, `Failed login: ${user.username} (wrong pw, attempt ${user.loginAttempts})`);
+    showAlert('error', user.locked
+      ? 'Too many failed attempts. Account locked.'
+      : `Invalid credentials. ${5 - user.loginAttempts} attempts remaining.`);
+    return;
+  }
+
+  user.loginAttempts = 0;
+  setLoading('btn-login', false);
+
+  if (user.twoFAEnabled) {
+    pendingUser = key;
+    pending2FACode = generateTOTPCode();
+    document.getElementById('demo-code-display').textContent = pending2FACode;
+    resetDigits('d', 6);
+    showView('view-2fa');
+    setTimeout(() => focusTwofaInput(), 100);
+  } else {
+    createSession(key);
+  }
+}
+
+// ─── 2FA Verify ──────────────────────────────────────────────────────────────
+function on2FAInput(inp) {
+  const val = inp.value.replace(/\D/g, '').slice(0, 6);
+  inp.value = val;
+  for (let i = 0; i < 6; i++) {
+    const d = document.getElementById('d' + i);
+    d.textContent = val[i] || '_';
+    d.classList.toggle('active', i === val.length && val.length < 6);
+  }
+}
+function on2FAKeydown(e) { if (e.key === 'Enter') verify2FA(); }
+
+function focusTwofaInput() {
+  const inp = document.getElementById('twofa-real');
+  inp.value = '';
+  inp.focus();
+  on2FAInput(inp);
+}
+
+async function verify2FA() {
+  const val = document.getElementById('twofa-real').value;
+  if (val.length !== 6) { showAlert('warning', 'Enter all 6 digits'); return; }
+
+  setLoading('btn-2fa', true);
+  await delay(500);
+
+  if (val === pending2FACode) {
+    setLoading('btn-2fa', false);
+    addLog(true, '2FA verified successfully');
+    createSession(pendingUser);
+    pendingUser = null; pending2FACode = null;
+  } else {
+    setLoading('btn-2fa', false);
+    addLog(false, '2FA verification failed');
+    showAlert('error', 'Invalid code. Check the demo code above.');
+    resetDigits('d', 6);
+    document.getElementById('twofa-real').value = '';
+  }
+}
+
+function cancelLogin() {
+  pendingUser = null; pending2FACode = null;
+  hideAlert();
+  showView('view-login');
+}
+
+// ─── 2FA Setup ───────────────────────────────────────────────────────────────
+function onSetupInput(inp) {
+  const val = inp.value.replace(/\D/g, '').slice(0, 6);
+  inp.value = val;
+  for (let i = 0; i < 6; i++) {
+    const d = document.getElementById('sd' + i);
+    d.textContent = val[i] || '_';
+    d.classList.toggle('active', i === val.length && val.length < 6);
+  }
+}
+function onSetupKeydown(e) { if (e.key === 'Enter') confirmSetup2FA(); }
+function focusSetupInput() {
+  const inp = document.getElementById('setup-real');
+  inp.value = '';
+  inp.focus();
+  onSetupInput(inp);
+}
+
+async function confirmSetup2FA() {
+  const val = document.getElementById('setup-real').value;
+  if (val.length !== 6) { showAlert('warning', 'Enter all 6 digits to confirm'); return; }
+
+  if (val === setupCode) {
+    DB[pendingUser].twoFAEnabled = true;
+    addLog(true, '2FA enabled for account');
+    showAlert('success', '2FA enabled! Sign in to continue.');
+    showView('view-login');
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+    pendingUser = null; setupCode = null;
+  } else {
+    showAlert('error', 'Wrong code. Check the demo code hint above.');
+    resetDigits('sd', 6);
+    document.getElementById('setup-real').value = '';
+  }
+}
+
+function skipSetup2FA() {
+  showAlert('success', 'Account created. You can enable 2FA later in settings.');
+  showView('view-login');
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  pendingUser = null; setupCode = null;
+}
+
+// ─── Session ─────────────────────────────────────────────────────────────────
+function createSession(userKey) {
+  const user = DB[userKey];
+  session = {
+    id: generateSessionId(),
+    user: userKey,
+    createdAt: new Date(),
+    remember: document.getElementById('remember-me')?.checked || false
+  };
+  addLog(true, `Session started: ${user.username}`);
+  renderDashboard(user);
+  showView('view-dashboard');
+}
+
+function renderDashboard(user) {
+  document.getElementById('dash-avatar').textContent = user.username[0].toUpperCase();
+  document.getElementById('dash-name').textContent = user.username;
+  document.getElementById('dash-role').textContent = `// ${user.email}`;
+  document.getElementById('dash-session').textContent = session.id.slice(0, 12) + '…';
+  document.getElementById('dash-time').textContent = session.createdAt.toLocaleTimeString();
+
+  const badge2fa = document.getElementById('dash-2fa-status');
+  badge2fa.textContent = user.twoFAEnabled ? 'ENABLED' : 'DISABLED';
+  badge2fa.className = `si-badge ${user.twoFAEnabled ? 'green' : ''}`;
+  badge2fa.style.borderColor = user.twoFAEnabled ? '' : 'rgba(251,191,36,0.3)';
+  badge2fa.style.color = user.twoFAEnabled ? '' : 'var(--yellow)';
+  badge2fa.style.background = user.twoFAEnabled ? '' : 'rgba(251,191,36,0.08)';
+
+  renderLog();
+}
+
+function doLogout() {
+  addLog(true, `Logout: ${DB[session.user].username}`);
+  session = null;
+  hideAlert();
+  showView('view-login');
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pw').value = '';
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function resetDigits(prefix, n) {
+  for (let i = 0; i < n; i++) {
+    const d = document.getElementById(prefix + i);
+    if (d) { d.textContent = '_'; d.classList.remove('active'); }
+  }
+  if (prefix === 'd') on2FAInput({ value: '' });
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function drawFakeQR() {
+  const canvas = document.getElementById('fake-qr');
+  const ctx = canvas.getContext('2d');
+  const size = 120, cells = 25, cell = size / cells;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#111';
+  // Deterministic pattern from secret
+  const seed = (DB[pendingUser]?.twoFASecret || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  let r = seed;
+  function rng() { r = (r * 1664525 + 1013904223) & 0xffffffff; return (r >>> 0) / 0xffffffff; }
+  for (let y = 0; y < cells; y++)
+    for (let x = 0; x < cells; x++)
+      if (rng() > 0.5) ctx.fillRect(x * cell, y * cell, cell, cell);
+  // Finder patterns
+  function finder(ox, oy) {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(ox * cell, oy * cell, 7 * cell, 7 * cell);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect((ox + 1) * cell, (oy + 1) * cell, 5 * cell, 5 * cell);
+    ctx.fillStyle = '#111';
+    ctx.fillRect((ox + 2) * cell, (oy + 2) * cell, 3 * cell, 3 * cell);
+  }
+  finder(0, 0); finder(18, 0); finder(0, 18);
+}
+
+// ─── Seed a demo account ──────────────────────────────────────────────────────
+(async () => {
+  const hash = await bcrypt.hash('Demo1234!', 10);
+  DB['demo'] = {
+    email: 'demo@vaultauth.dev', username: 'demo', hash,
+    twoFAEnabled: false, twoFASecret: generate2FASecret(),
+    createdAt: new Date().toISOString(), loginAttempts: 0, locked: false
+  };
+  showAlert('info', 'Demo account ready: <strong>demo</strong> / <strong>Demo1234!</strong>');
+})();
+</script>
+</body>
+</html>
